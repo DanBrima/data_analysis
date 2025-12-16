@@ -106,4 +106,4 @@ Below are the MLflow screenshots for before and after the change. The improved m
 
 ![MLflow before: baseline SmallCNN](./screenshots/before_change.png)
 
-![MLflow after: SmallCNN with BatchNorm + MaxPooling](./screenshots/before_change.png)
+![MLflow after: SmallCNN with BatchNorm + MaxPooling](./screenshots/after_change.png)
