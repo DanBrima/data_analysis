@@ -5,6 +5,8 @@ We used the Kaggle *A Large-Scale Fish Dataset* and reorganized it into a clean 
 
 In EDA, we observed the dataset is **balanced**, with each class contributing roughly the same number of images (visible from the class distribution plot). We also sampled and visualized example images per class to sanity-check label quality and visual diversity.
 
+During training we resized images to 224×224 and applied augmentation with `RandomHorizontalFlip(p=0.5)` and `RandomRotation(30)`, then converted to tensors. For evaluation (validation/test) we used only deterministic preprocessing (resize + tensor conversion) so metrics are comparable across runs.
+
 A practical observation from EDA ended up mattering later: **some shrimp images appear fully horizontal**, which became a recurring misclassification pattern.
 
 ---
@@ -30,17 +32,18 @@ The most consistent failure case was **Shrimp** being misclassified when the sub
 - the pose differs from the majority of shrimp examples.
 
 #### Why it happens
-Our baseline augmentations were not fully covering the orientation variability. A model trained mostly on “typical” orientations tends to learn shortcuts (pose, silhouette direction, common background patterns).
+Our initial baseline augmentation was limited, so it did not fully cover the orientation variability we saw in the errors.
+
+Importantly, the rotation augmentation was added only after the error analysis. We saw that horizontally oriented shrimp examples were a recurring failure mode, so we updated the training transforms to include rotations specifically to teach the model that “sideways shrimp” is still shrimp.
 
 #### At least 3 improvement ideas
-1. **Add rotation augmentation** (high priority): `RandomRotation` increases robustness to pose and orientation, directly targeting the shrimp failure mode.
-2. **Improve the CNN architecture** (high priority): add **BatchNorm** for stable training and **AdaptiveAvgPool2d** to reduce sensitivity to spatial layout and input size.
-3. **Use pretrained transfer learning** (high impact): ResNet, EfficientNet, DenseNet, or VGG typically learn stronger features and converge faster to high accuracy.
+1. Add rotation augmentation (most important here)
+Teach the model that shrimp sideways is still shrimp.
 
-Other options (lower priority for this assignment):
-- learning rate scheduling, more epochs,
-- higher input resolution if fine details matter,
-- stronger regularization such as MixUp or CutMix.
+2. Normalize inputs + stabilize conv blocks (BatchNorm)
+Normalization helps optimization; BatchNorm improves training stability and often generalization.
+
+3. Increase model capacity (more filters / deeper)
 
 ---
 
@@ -89,3 +92,18 @@ Notes:
 - **Architecture changes improved stability**: BatchNorm and AdaptiveAvgPool helped the small CNN generalize better.
 - **Transfer learning was the biggest boost**: pretrained backbones delivered the most consistent high performance.
 - **Feature extraction is a strong baseline**: ResNet embeddings plus Logistic Regression matched end-to-end performance almost exactly (difference around 0.00056).
+
+---
+
+### MLflow results: SmallCNN baseline vs BatchNorm + MaxPooling
+We tracked experiments in MLflow and compared the baseline SmallCNN run to the improved SmallCNN variant that includes BatchNorm in the convolution blocks and MaxPooling for downsampling. The MLflow curves show a clear jump in accuracy and a corresponding drop in loss after this architecture change.
+
+Why this helps:
+- BatchNorm stabilizes activation distributions during training, making optimization smoother and typically improving generalization.
+- MaxPooling reduces spatial resolution while keeping strong local responses, adding translation robustness and reducing overfitting to exact pixel locations.
+
+Below are the MLflow screenshots for before and after the change. The improved model even compares to some pretrained architectures in terms of accuracy!
+
+![MLflow before: baseline SmallCNN](./screenshots/before_change.png)
+
+![MLflow after: SmallCNN with BatchNorm + MaxPooling](./screenshots/before_change.png)
